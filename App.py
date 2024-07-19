@@ -7,12 +7,13 @@ import matplotlib
 from matplotlib import pyplot as plt
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
+# Web icon and title 
 st.set_page_config(
     page_title="A-Hatid!",
     page_icon="https://cdn-icons-png.freepik.com/512/6984/6984901.png"
 )
 
-# Cache the data loading function to avoid reloading data on each interaction
+# Cache the data loading function to avoid reloading data on each interaction c/o Ju
 @st.cache_data(ttl=5)
 def load_data(sheet_id):
     return pd.read_csv(f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv")
@@ -22,37 +23,41 @@ dfA = load_data(sheet_idA)
 
 line = st.selectbox(label=("Select an E-Jeep Line"), options=["LINE A", "LINE B"])
 
+# Plotting the general map c/o Madie 
 def plot_map(title, coords, place_coords, place_labels):
-    fig, ax = plt.subplots(figsize=(6, 4))  # Adjust the width and height to make the figures smaller
+    # fig, ax prepares a 6 by 4 space to plot points // destinations later 
+    fig, ax = plt.subplots(figsize=(6, 4))  # This code helps adjust the height and width of the figure//graph
+    # loads the image file (pin) meant to represent the e-jeep terminal stops 
     icon_path = 'pin.png'
     icon = plt.imread(icon_path)
-    # Add icons and labels to the map
+    # starts a loop that iterates over pairs of coordinates and corresponding labels
     for (x, y), label in zip(place_coords, place_labels):
-        im = OffsetImage(icon, zoom=0.005)
-        ab = AnnotationBbox(im, (x, y), xycoords='data', frameon=False)
-        ax.add_artist(ab)
-        ax.text(x + 0.1, y + 0.25, f' {label}', fontsize=6, verticalalignment='center_baseline', zorder=10)
-    ax.plot(*zip(*coords), color='lightgray', label='Route')  
-    ax.set_title(title, fontsize=10, pad=20)
-    ax.axis('off')
+        im = OffsetImage(icon, zoom=0.005) # resizes the image 
+        ab = AnnotationBbox(im, (x, y), xycoords='data', frameon=False) #takes the image (im), the coordinates (x, y) where the image should be placed, and xycoords='data' specifies that the coordinates are in data units
+        ax.add_artist(ab) #adds the icon to the figure 
+        ax.text(x + 0.1, y + 0.25, f' {label}', fontsize=6, verticalalignment='center_baseline', zorder=10) # settings for the size and placement of the terminal labels
+    ax.plot(*zip(*coords), color='lightgray', label='Route') # plots the route in gray color 
+    ax.set_title(title, fontsize=10, pad=20) # title settings
+    ax.axis('off') # to only show the graph itself and replicate an image of the route 
     return fig, ax
 
-def highlight_route(ax, start, end, line_coords):
-    start_index = line_coords["coords"].index(line_coords["place_coords"][line_coords["place_labels"].index(start)])
-    end_index = line_coords["coords"].index(line_coords["place_coords"][line_coords["place_labels"].index(end)])
+def highlight_route(ax, start, end, line_coords): # defines the route to be highlighted 
+    start_index = line_coords["coords"].index(line_coords["place_coords"][line_coords["place_labels"].index(start)]) # finds index of starting point
+    end_index = line_coords["coords"].index(line_coords["place_coords"][line_coords["place_labels"].index(end)]) # finds index of end point 
     
-    if start_index <= end_index:
+    if start_index <= end_index: # if the start index <= end index, highlight all points end to end 
         highlighted_x = [line_coords["coords"][i][0] for i in range(start_index, end_index + 1)]
         highlighted_y = [line_coords["coords"][i][1] for i in range(start_index, end_index + 1)]
-    else:
+    else: # for the last stops // looping 
         highlighted_x = [line_coords["coords"][i][0] for i in range(start_index, len(line_coords["coords"]))]
         highlighted_x += [line_coords["coords"][i][0] for i in range(0, end_index + 1)]
         highlighted_y = [line_coords["coords"][i][1] for i in range(start_index, len(line_coords["coords"]))]
         highlighted_y += [line_coords["coords"][i][1] for i in range(0, end_index + 1)]
     
-    ax.plot(highlighted_x, highlighted_y, color='#0305C6', linewidth=1, label=f'Route {start} to {end}')
+    ax.plot(highlighted_x, highlighted_y, color='#0305C6', linewidth=1, label=f'Route {start} to {end}') # labels and plots
     ax.legend(fontsize=6)
 
+#dictionary of line coordinates for the map
 line_coords = {
     "LINE A": {
         "coords": [(15, 1), (10, 1), (10, 3), (10, 4), (8, 4), (8, 4.5), (11, 4.5), (11, 5), (12.5, 5), (14.5, 5), (15, 5), (15, 1)],
@@ -71,8 +76,9 @@ if line == "LINE A":
     st.write("If an E-jeep is marked For Charging, its final stop will be at Gate 1. The E-jeep will continue to make all stops up to Gate 1, as indicated on the map below.")
     st.write(dfA.head(3))
     
-    # Plot A1, A2, A3 on one map
+    # calls the plot_map function to create a map for "Line A Routes". It uses coordinates and place labels from line_coords["LINE A"] to plot the route.
     fig, ax = plot_map("Line A Routes", line_coords["LINE A"]["coords"], line_coords["LINE A"]["place_coords"], line_coords["LINE A"]["place_labels"])
+    # retrieves the values of the cells from the gsheet, to be used for the conditional statements in highlighting a certain route
     try:
         A1 = dfA.iloc[0, 1]
         A2 = dfA.iloc[1, 1]
@@ -82,7 +88,7 @@ if line == "LINE A":
         N3 = dfA.iloc[2, 2]
         
         def highlight(ax, last_item, next_item):
-            if last_item == next_item:
+            if last_item == next_item: # prevents the code from creating a new highlight (ex. if Xavier is for charging, it should not highlight the next route: Xavier to AJHS)
                 highlight_route(ax, last_item, last_item, line_coords["LINE A"])
             elif last_item == "Hagdan na Bato":
                 highlight_route(ax, "Hagdan na Bato", "Old Comm", line_coords["LINE A"])
@@ -119,8 +125,9 @@ if line == "LINE B":
     st.write("If an E-jeep is marked For Charging, its final stop will be at Xavier Hall. The E-jeep will continue to make all stops up to Xavier Hall, as indicated on the map below.")
     st.write(dfA.iloc[5:8])
     
-    # Plot B1, B2, B3 on one map
+    # calls the plot_map function to create a map for "Line B Routes". It uses coordinates and place labels from line_coords["LINE B"] to plot the route.
     fig, ax = plot_map("Line B Routes", line_coords["LINE B"]["coords"], line_coords["LINE B"]["place_coords"], line_coords["LINE B"]["place_labels"])
+    # retrieves the values of the cells from the gsheet, to be used for the conditional statements in highlighting a certain route
     try:
         B1 = dfA.iloc[5, 1]
         B2 = dfA.iloc[6, 1]
@@ -130,7 +137,7 @@ if line == "LINE B":
         M3 = dfA.iloc[7, 2]
         
         def highlight(ax, last_item, next_item):
-            if last_item == next_item:
+            if last_item == next_item: # prevents the code from creating a new highlight (ex. if Xavier is for charging, it should not highlight the next route: Xavier to AJHS)
                 highlight_route(ax, last_item, last_item, line_coords["LINE B"])
             elif last_item == "Xavier Hall":
                 highlight_route(ax, "Xavier Hall", "AJHS", line_coords["LINE B"])
@@ -160,6 +167,7 @@ if line == "LINE B":
     if dfA.iloc[7, 3] == "For Charging":
         st.write('B3: This E-jeep is only until Xavier Hall.')
 
+# indication of the last time the code was refreshed
 local_tz = pytz.timezone('Asia/Manila')
 local_time = datetime.datetime.now(local_tz)
 
